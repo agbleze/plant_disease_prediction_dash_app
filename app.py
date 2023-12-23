@@ -38,7 +38,21 @@ def get_model(model_path: str):
     return model.eval()
     
     
-def predict(model, bytes_img):
+def predict(model, bytes_img, file_name):
+    export_pred_img_dir = "image_predictions"
+    uploaded_img_dir = "uploaded_img_dir"
+    predicted_labels = "predicted_labels"
+    
+    os.makedirs(export_pred_img_dir, exist_ok=True)
+    os.makedirs(uploaded_img_dir, exist_ok=True)
+    os.makedirs(predicted_labels, exist_ok=True)
+    
+    pred_file = os.path.join(export_pred_img_dir, file_name)
+    uploaded_file = os.path.join(uploaded_img_dir, file_name)
+    
+    filename_without_ext = file_name.split(".")[0]
+    filename_txt = filename_without_ext + ".txt"
+    file_txt_path = os.path.join(predicted_labels, filename_txt)
     
     window_name = 'Image'
     font = cv2.FONT_HERSHEY_SIMPLEX 
@@ -50,6 +64,7 @@ def predict(model, bytes_img):
     resize_width, resize_height = 640, 640         
             
     img = Image.open(bytes_img).convert("RGB")
+    img.save(uploaded_file)
     actual_width, actual_height = img.size
     
     width_ratio = actual_width/ resize_width
@@ -84,19 +99,16 @@ def predict(model, bytes_img):
                             thickness=thickness, 
                             lineType=cv2.LINE_AA
                             )
-        #print(type(frame))
-        #ret, buffer = cv2.imencode('.jpg', frame)
-        #frame = buffer.tobytes()
-        #jpg_as_text = base64.b64encode(frame)
         img_fromarr = Image.fromarray(frame, 'RGB')
-        cv2.imwrite("pref_img.jpg", frame)
+        
+        cv2.imwrite(pred_file, frame)
+        
+        with open(file_txt_path, "w") as fp:
+            fp.write("No prediction")
+            
         return img_fromarr
         
     else:
-        #show(frame, bbs=bbs, texts=labels, sz=5, text_sz=10,
-        #    title=info)
-        #break
-        #print("in else:")
         for i in range(n):
             print(f"bbs: {bbs}")
             x1, y1, x2, y2 = bbs[i]
@@ -106,8 +118,6 @@ def predict(model, bytes_img):
             y2 = int(y2 * height_ratio)
             print(x1), print(x2)
             print(type(x1))
-            #x1, y1 = x1 * x_shape, y1 * y_shape
-            #x2, y2 = x2 * x_shape, y2 * y_shape
             
             label = labels[i]
             bgr = (0,0, 255)
@@ -122,8 +132,24 @@ def predict(model, bytes_img):
                             thickness=thickness, 
                             lineType=cv2.LINE_AA
                             )
+            
+        
+                
         img_fromarr = Image.fromarray(frame, 'RGB')
-        cv2.imwrite("predicted_img.jpg", frame)
+        img_fromarr.save(pred_file)
+        
+        with open(file_txt_path, "w") as fp:    
+            for i in range(n):
+                x1, y1, x2, y2 = bbs[i]
+                x1 = int(x1 * width_ratio)
+                x2 = int(x2 * width_ratio)
+                y1 =  int(y1 * height_ratio)
+                y2 = int(y2 * height_ratio)
+                
+                label = labels[i]
+                fp.write(f"{label} {x1} {y1} {x2} {y2} \n")
+                
+        #cv2.imwrite(pred_file, frame)
         return img_fromarr   
 
 
@@ -175,8 +201,6 @@ img_page = dbc.Row([
                                                                 ]
                                                       )
                                      ),
-                             html.Br(),
-                             #html.Img(id='bar-graph-matplotlib')
                             ], 
                             width=12
                             )
@@ -187,26 +211,44 @@ img_page = dbc.Row([
 # save bbs and labels predicted with file name in json 
 main_page = html.Div([
                     dbc.Row(children=[
-                                    dbc.Col(width="auto",
-                                            children=[html.Div("RHFC", style={"color": '#343a40'}),
-                                                      create_upload_button(), #dcc.Upload()
-                                                      dbc.Button("Predict plant disease", id="id_predict_button", size="md", color="dark"),
-                                                      html.Br(), html.Br(),
-                                                      #dbc.Button("Split Data", id="id_split_data", color="dark", size="md"),
-                                                     # html.Button( ),
-                                                    ],
+                                    html.Div(
+                                            [
+                                                dbc.Button("AI for Disease Detection", id="open-offcanvas", n_clicks=0,
+                                                           style={"backgroundColor": "#5a5a5a"}),
+                                                dbc.Offcanvas(dbc.Col(width="auto",
+                                                                      children=[html.Div("RHFC", style={"color": '#343a40'}
+                                                                               ),
+                                                                        create_upload_button(),
+                                                                        dbc.Button("Predict plant disease", id="id_predict_button", 
+                                                                                   size="md", color="dark"
+                                                                                   ),
+                                                                    ],
                                             style={"backgroundColor": '#5ebbcb',
                                                    "height": "100em"
                                                    }
                                             ),
-                                    dbc.Col(children=[img_page#html.Div(id="main_page_content")
-                                                      ]
+                                                    id="offcanvas",
+                                                    title="Title",
+                                                    is_open=False,
+                                                ),
+                                            ]
+                                        ),
+                                    
+                                    dbc.Col(children=[html.H3("AI For Good"),
+                                                      html.H4("Field Testing of Disease prediction model"),
+                                                      html.P("""This app provides an interface to enable farmers detect
+                                                             diseases and pests affecting crops and identify where 
+                                                             they are located. Upload an image of the crop you want to assess
+                                                             and get shown the disease on it.
+                                                             """
+                                                             ),
+                                                    img_page
+                                                    ],
                                             )
                                 ],
-                            style={"height": "100%"}
+                            style={"height": "auto",
+                                   "backgroundColor": "#20c997"}
                             ),
-    #dt.SideBar([dt.SideBarItem(dcc.Upload(html.Button('Upload Zip File of images')))]),
-    #html.Div(id="main_page_content")
 ])
 
 app.layout = main_page  #html.Div("Image clustering app")
@@ -221,7 +263,7 @@ def update_output(list_of_contents, list_of_names):
         
         # TO DO: export image to folder
         
-        children = [html.H5(f"Original Image: {list_of_names}"),
+        children = [html.H5(f"Original Image: {list_of_names[0]}"),
                     html.Br(),
                    html.Img(src=list_of_contents)
                     ]
@@ -237,12 +279,23 @@ def predict_disease(upload_contents, n_clicks, filename):
         encoded_image = upload_contents[0].split(",")[1]
         decoded_image = base64.b64decode(encoded_image)
         bytes_image = BytesIO(decoded_image) 
-        predicted_byte_img = predict(model=model, bytes_img=bytes_image)
-        children = [html.H5(f"Prediction on Image: {filename}"),
+        predicted_byte_img = predict(model=model, bytes_img=bytes_image, file_name=filename[0])
+        children = [html.H5(f"Prediction on Image: {filename[0]}"),
                     html.Br(),
                     html.Img(src=predicted_byte_img)
                     ]
         return children
+    
+@app.callback(
+    Output("offcanvas", "is_open"),
+    Input("open-offcanvas", "n_clicks"),
+    [State("offcanvas", "is_open")],
+)
+def toggle_offcanvas(n1, is_open):
+    if n1:
+        return not is_open
+    return is_open
+
             
 
 if __name__ == "__main__":
