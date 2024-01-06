@@ -228,7 +228,7 @@ main_page = html.Div([
                                                    }
                                             ),
                                                     id="offcanvas",
-                                                    title="Title",
+                                                    #title="Title",
                                                     is_open=False,
                                                 ),
                                             ]
